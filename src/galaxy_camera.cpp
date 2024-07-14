@@ -37,6 +37,7 @@ void GalaxyCameraNodelet::onInit()
 
   image_transport::ImageTransport it(nh_);
   pub_ = it.advertiseCamera("/galaxy_camera/" + nh_.getNamespace() + "/image_raw", 1);
+  this->status_change_srv_ = nh_.advertiseService("/exposure_status_switch", &GalaxyCameraNodelet::changeStatusCB, this);
   // check for default camera info
   if (!info_manager_->isCalibrated())
   {
@@ -165,6 +166,18 @@ void GalaxyCameraNodelet::cameraChange(const std_msgs::String camera_change)
     GXStreamOn(dev_handle_);
   else
     GXStreamOff(dev_handle_);
+}
+
+bool GalaxyCameraNodelet::changeStatusCB(rm_msgs::StatusChange::Request& change, rm_msgs::StatusChange::Response& res)
+{
+  if (change.target)
+    nh_.param("exposure_value_windmill", exposure_value_, std::float_t(2000.));
+  else
+    nh_.param("exposure_value", exposure_value_, std::float_t(1000.));
+  GXSetFloat(dev_handle_, GX_FLOAT_EXPOSURE_TIME, exposure_value_);
+  GXSetEnum(dev_handle_, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_OFF);
+  res.switch_is_success = true;
+  return true;
 }
 
 void GalaxyCameraNodelet::enableTriggerCB(const ros::TimerEvent&)
